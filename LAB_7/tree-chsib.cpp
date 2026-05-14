@@ -76,7 +76,7 @@ Error tree::addElem(const Label labelOfNodeInTree, const Label labelOfNodeToAdd,
    }
 
    else
-   {
+   { 
       // cerco il nodo padre
       treeNode* padre = findNode(labelOfNodeInTree, t);
       
@@ -132,10 +132,24 @@ Error tree::deleteElemR(const Label l, Tree& t)
 // father restituisce l'etichetta del padre del nodo con etichetta l se il nodo esiste nell'albero 
 // (o sottoalbero) t e se il padre esiste. 
 // Restituisce la costante emptyLabel altrimenti
-Label tree::father(const Label l, const Tree& t)
-{ 
-   if (isEmpty(t)) return emptyLabel;
-   
+Label tree::father(const Label l, const Tree& t) {
+   if (isEmpty(t) || t->label == l) return emptyLabel; // Caso base o è la radice
+
+   //cerco tra i figli diretti di t
+   Tree child = t->firstChild;
+   while (child != emptyNode) {
+      if (child->label == l) return t->label;
+      child = child->nextSibling;
+   }
+
+   // se non è tra i figli, cerco ricorsivamente nei sottoalberi dei figli
+   child = t->firstChild;
+   while (child != emptyNode) {
+      Label res = father(l, child);
+      if (res != emptyLabel) return res;
+      child = child->nextSibling;
+   }
+
    return emptyLabel;
 }
 
@@ -203,15 +217,34 @@ list::List tree::ancestorsI(const Label l, const Tree& t)
 }
 
 
-
+//FUNZIONE AUSILIARIA PER leastCommonAncestor
+bool isAncestor(Label a, Label target, const Tree& t) {
+    if (target == emptyLabel) return false;
+    if (a == target) return true; // Un nodo è antenato di se stesso
+    
+    // Risaliamo l'albero verso il padre
+    return isAncestor(a, father(target, t), t);
+}
 /*******************************************************************************************************/
 // leastCommonAncestor restituisce l'etichetta del minimo antenato comune 
 // ai nodi etichettati con label1 e label2
-Label tree::leastCommonAncestor(const Label label1, const Label label2, const Tree& t)
-{
-   return emptyLabel;
-}
+Label tree::leastCommonAncestor(const Label label1, const Label label2, const Tree& t) {
+    if (isEmpty(t)) return emptyLabel;
 
+    Label current = label1;
+
+    // risaliamo da label1 fino alla radice
+    while (current != emptyLabel) 
+    {
+        if (isAncestor(current, label2, t)) 
+        {
+            return current;
+        }
+        current = father(current, t);
+    }
+
+    return emptyLabel;
+}
 
 
 /*******************************************************************************************************/
