@@ -97,7 +97,7 @@ Error tree::addElem(const Label labelOfNodeInTree, const Label labelOfNodeToAdd,
    }
    
    return FAIL;
-}     
+}
 
 
 
@@ -110,20 +110,113 @@ Error tree::addElem(const Label labelOfNodeInTree, const Label labelOfNodeToAdd,
 Error tree::deleteElemI(const Label l, Tree& t)
 {
    if (isEmpty(t)) return FAIL;
-   if (findNode(l, t) == emptyTree) return FAIL;
 
+   // Caso in cui il nodo da cancellare sia la radice
+   if (t->label == l)
+   {
+      if (t->firstChild != emptyTree) return FAIL;
+      Tree old = t;
+      t = emptyTree;
+      delete old;
+      return OK;
+   }
 
-     return FAIL;     
+   // Ricerca del padre sfruttando la funzione father già implementata
+   Label fatherLabel = father(l, t);
+   if (fatherLabel == emptyLabel) return FAIL;
+
+   Tree padre = findNode(fatherLabel, t);
+   if (padre == emptyTree) return FAIL;
+
+   // Individuo il nodo da eliminare e il suo fratello precedente nella lista dei figli del padre
+   Tree prev = emptyTree;
+   Tree curr = padre->firstChild;
+   while (curr != emptyTree && curr->label != l)
+   {
+      prev = curr;
+      curr = curr->nextSibling;
+   }
+
+   if (curr == emptyTree) return FAIL;
+
+   // Sgancio il nodo curr dalla sequenza dei fratelli
+   if (prev == emptyTree)
+   {
+      padre->firstChild = curr->nextSibling;
+   }
+   else
+   {
+      prev->nextSibling = curr->nextSibling;
+   }
+
+   // Riaggancio i figli del nodo eliminato mettendoli in testa ai figli del padre
+   Tree children = curr->firstChild;
+   if (children != emptyTree)
+   {
+      Tree lastChild = children;
+      while (lastChild->nextSibling != emptyTree)
+      {
+         lastChild = lastChild->nextSibling;
+      }
+      lastChild->nextSibling = padre->firstChild;
+      padre->firstChild = children;
+   }
+
+   delete curr;
+   return OK;   
 }
 
 
 
-/*******************************************************************************************************/
+// FUNZIONE AUSILIARIA RICORSIVA PER LA CANCELLAZIONE
+bool deleteElemRHelper(const Label l, Tree& curr, Tree padre)
+{
+   if (curr == emptyTree) return false;
+
+   if (curr->label == l)
+   {
+      Tree toDelete = curr;
+      Tree children = curr->firstChild;
+
+      // curr è un alias (riferimento) al puntatore del padre o del fratello precedente.
+      // Avanzandolo, lo bypassiamo automaticamente dalla catena dei fratelli.
+      curr = curr->nextSibling;
+
+      if (children != emptyTree)
+      {
+         Tree lastChild = children;
+         while (lastChild->nextSibling != emptyTree)
+         {
+            lastChild = lastChild->nextSibling;
+         }
+         lastChild->nextSibling = padre->firstChild;
+         padre->firstChild = children;
+      }
+
+      delete toDelete;
+      return true;
+   }
+
+   if (deleteElemRHelper(l, curr->firstChild, curr)) return true;
+   return deleteElemRHelper(l, curr->nextSibling, padre);
+}
+
 // deleteElem (versione ricorsiva): stesso comportamento della versione iterativa, ma implementata ricorsivamente
 // (può anche non essere ricorsiva la deleteElemR, ma deve fare uso di funzioni ausiliarie ricorsive)
 Error tree::deleteElemR(const Label l, Tree& t)
 {
-     return FAIL;    
+   if (isEmpty(t)) return FAIL;
+   
+   if (t->label == l)
+   {
+      if (t->firstChild != emptyTree) return FAIL;
+      Tree old = t;
+      t = emptyTree;
+      delete old;
+      return OK;
+   }
+
+   return deleteElemRHelper(l, t->firstChild, t) ? OK : FAIL;
 }
 
 
@@ -137,14 +230,15 @@ Label tree::father(const Label l, const Tree& t) {
 
    //cerco tra i figli diretti di t
    Tree child = t->firstChild;
-   while (child != emptyNode) {
+   while (child != emptyTree)
+   {
       if (child->label == l) return t->label;
       child = child->nextSibling;
    }
 
    // se non è tra i figli, cerco ricorsivamente nei sottoalberi dei figli
    child = t->firstChild;
-   while (child != emptyNode) {
+   while (child != emptyTree) {
       Label res = father(l, child);
       if (res != emptyLabel) return res;
       child = child->nextSibling;
@@ -190,6 +284,25 @@ int tree::degree(const Label l, const Tree& t)
 }
 
 
+// FUNZIONE AUSILIARIA RICORSIVA PER GLI ANTENATI
+bool findAncestorsR(const Label l, const Tree& t, list::List& lst)
+{
+   if (isEmpty(t)) return false;
+   if (t->label == l) return true;
+
+   Tree child = t->firstChild;
+   while (child != emptyTree)
+   {
+      if (findAncestorsR(l, child, lst))
+      {
+         addBack(t->label, lst);
+         lst.size++;
+         return true;
+      }
+      child = child->nextSibling;
+   }
+   return false;
+}
 
 /*******************************************************************************************************/
 // ancestors (versione ricorsiva) restituisce una lista di Label, contenente le etichette 
@@ -200,6 +313,7 @@ int tree::degree(const Label l, const Tree& t)
 list::List tree::ancestorsR(const Label l, const Tree& t)
 {
    list::List lst = list::createEmpty();
+   findAncestorsR(l, t, lst);
    return lst;
 }
 
@@ -213,6 +327,15 @@ list::List tree::ancestorsR(const Label l, const Tree& t)
 list::List tree::ancestorsI(const Label l, const Tree& t)
 {
    list::List lst = list::createEmpty();
+   if (!member(l, t)) return lst;
+
+   Label curr = father(l, t);
+   while (curr != emptyLabel)
+   {
+      addBack(curr, lst);
+      lst.size++;
+      curr = father(curr, t);
+   }
    return lst;
 }
 
@@ -251,21 +374,7 @@ Label tree::leastCommonAncestor(const Label label1, const Label label2, const Tr
 // member restituisce true se il nodo etichettato con la label l appartiene all'albero t e false altrimenti
 bool tree::member(const Label l, const Tree& t)
 {
-   Tree auxTree = t;
-   while (auxTree->firstChild != emptyTree)
-   {
-      while (auxTree->nextSibling != emptyTree)
-      {
-         if(auxTree->label == l) return true;
-         auxTree = auxTree->nextSibling;
-
-      }
-
-      if(auxTree->label == l) return true;
-      auxTree = auxTree->firstChild;
-
-   }
-   return false;  
+   return findNode(l, t) != emptyTree; 
 }
 
 
@@ -274,23 +383,8 @@ bool tree::member(const Label l, const Tree& t)
 // numNodes restituisce il numero di nodi nell'albero t mediante una visita ricorsiva in depthfirst
 int tree::numNodes(const Tree& t)
 {
-   int conta = 0;
-   Tree auxTree = t;
-   while (auxTree->firstChild != emptyTree)
-   {
-      while (auxTree->nextSibling != emptyTree)
-      {
-         conta++;
-         auxTree = auxTree->nextSibling;
-
-      }
-
-      conta ++;
-      auxTree = auxTree->firstChild;
-
-   }
-   
-   return conta; 
+   if (isEmpty(t)) return 0;
+   return 1 + numNodes(t->firstChild) + numNodes(t->nextSibling);
 }
 
 
