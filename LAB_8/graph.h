@@ -5,7 +5,7 @@
 
 using namespace std; 
 
-namespace graph {
+namespace graph {       
   typedef string Label; //etichetta dei vertici
   typedef unsigned int Weight; //peso degli archi
 
